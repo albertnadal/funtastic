@@ -16,6 +16,13 @@ const BASKET_HEIGHT = 215;
 const FLOOR_IMAGE_HEIGHT = 54;
 const FLOOR_IMAGE_WIDTH = 900;
 
+const BallType = {
+  BASKET_BALL: 'BASKET_BALL',
+  BODY_ACTION_BALL: 'BODY_ACTION_BALL',
+  STICKY_BALL: 'STICKY_BALL',
+  SCORE_BALL: 'SCORE_BALL'
+};
+
 let video;
 let bodyPose;
 let poses = [];
@@ -69,21 +76,21 @@ function setup() {
   connections = bodyPose.getSkeleton();
 
   // Create body action balls
-  player1LeftHandActionBall = new ball(10, 10, ACTION_BALL_RADIUS, color(0, 255, 0, 50), true, false, false);
-  player1RightHandActionBall = new ball(10, 10, ACTION_BALL_RADIUS, color(0, 255, 0, 50), true, false, false);
+  player1LeftHandActionBall = new ball(10, 10, ACTION_BALL_RADIUS, color(0, 255, 0, 50), BallType.BODY_ACTION_BALL);
+  player1RightHandActionBall = new ball(10, 10, ACTION_BALL_RADIUS, color(0, 255, 0, 50), BallType.BODY_ACTION_BALL);
   ballArray.push(player1LeftHandActionBall);
   ballArray.push(player1RightHandActionBall);
-  player2LeftHandActionBall = new ball(10, 10, ACTION_BALL_RADIUS, color(0, 255, 0, 50), true, false, false);
-  player2RightHandActionBall = new ball(10, 10, ACTION_BALL_RADIUS, color(0, 255, 0, 50), true, false, false);
+  player2LeftHandActionBall = new ball(10, 10, ACTION_BALL_RADIUS, color(0, 255, 0, 50), BallType.BODY_ACTION_BALL);
+  player2RightHandActionBall = new ball(10, 10, ACTION_BALL_RADIUS, color(0, 255, 0, 50), BallType.BODY_ACTION_BALL);
   ballArray.push(player2LeftHandActionBall);
   ballArray.push(player2RightHandActionBall);
 
   // Create sticky balls
-  stickyBall1 = new ball(400, 190, 10, color(0, 255, 255, 80), false, true, false);
-  stickyBall2 = new ball(500, 190, 10, color(0, 255, 255, 80), false, true, false);
-  stickyBall3 = new ball(425, 245, 10, color(0, 255, 255, 80), false, true, false);
-  stickyBall4 = new ball(475, 245, 10, color(0, 255, 255, 80), false, true, false);
-  scoreBall = new ball(450, 235, 10, color(0, 255, 255, 80), false, false, true);
+  stickyBall1 = new ball(400, 190, 10, color(0, 255, 255, 80), BallType.STICKY_BALL);
+  stickyBall2 = new ball(500, 190, 10, color(0, 255, 255, 80), BallType.STICKY_BALL);
+  stickyBall3 = new ball(425, 245, 10, color(0, 255, 255, 80), BallType.STICKY_BALL);
+  stickyBall4 = new ball(475, 245, 10, color(0, 255, 255, 80), BallType.STICKY_BALL);
+  scoreBall = new ball(450, 235, 10, color(0, 255, 255, 80), BallType.SCORE_BALL);
   ballArray.push(stickyBall1);
   ballArray.push(stickyBall2);
   ballArray.push(stickyBall3);
@@ -155,7 +162,8 @@ function draw() {
 
   // Create new basketballs
   if (ballArray.length < BALL_AMOUNT + 2 + 2 + 5) {
-    ballArray.push(new ball(random(areaWidth), random(100) - 150, 30, color(255, 0, 0), false, false, false));
+    let randomHorPosition = random(1) >= 0.5 ? random(areaWidth/2 - BASKET_WIDTH/2) : random(areaWidth/2 + BASKET_WIDTH/2, areaWidth);
+    ballArray.push(new ball(randomHorPosition, random(100) - 150, 30, color(255, 0, 0), BallType.BASKET_BALL));
   }
 
   // Update balls states
@@ -232,16 +240,16 @@ function gotPoses(results) {
 }
 
 function communicateBetweenBalls() {
-    for (let i = 0; i < ballArray.length; i++) {
-      const current = ballArray[i];
-      const rest = ballArray.slice(i + 1);
-      for (const target of rest) {
-        current.checkCollision(target);
-      }
+  for (let i = 0; i < ballArray.length; i++) {
+    const current = ballArray[i];
+    const rest = ballArray.slice(i + 1);
+    for (const target of rest) {
+      current.checkCollision(target);
     }
   }
+}
 
-const ball = function (x, y, radius = null, color_ = null, isBodyActionBall_ = false, isStickyBall_ = false, isScoreBall_ = false, image_ = null) {
+const ball = function (x, y, radius = null, color_ = null, ballType_ = BallType.BASKET_BALL, image_ = null) {
     this.pos = createVector(x, y);
     this.vel = createVector(1, 0).rotate(random(PI));
     this.acc = createVector(0, 0);
@@ -249,9 +257,7 @@ const ball = function (x, y, radius = null, color_ = null, isBodyActionBall_ = f
     this.diameter = this.radius * 2;
     this.mass = this.radius ** 2;
     this.color = color_ == null ? color(random(256), random(256), random(256)) : color_;
-    this.isBodyActionBall = isBodyActionBall_;
-    this.isStickyBall = isStickyBall_;
-    this.isScoreBall = isScoreBall_;
+    this.ballType = ballType_;
     this.image = image_;
     this.rotation = random(360);
     this.markedToDelete = false;
@@ -273,11 +279,11 @@ const ball = function (x, y, radius = null, color_ = null, isBodyActionBall_ = f
         const shareA = target.mass / totalMass;
         const shareB = this.mass / totalMass;
 
-        if (!this.isBodyActionBall && !this.isStickyBall && !this.isScoreBall) {
+        if (this.ballType == BallType.BASKET_BALL) {
             this.acc.add(force.copy().mult(shareA));
         }
 
-        if (!target.isBodyActionBall && !target.isStickyBall && !target.isScoreBall) {
+        if (target.ballType == BallType.BASKET_BALL) {
           target.acc.sub(force.copy().mult(shareB));
 
           if (this == player1LeftHandActionBall || this == player1RightHandActionBall) {
@@ -312,7 +318,7 @@ const ball = function (x, y, radius = null, color_ = null, isBodyActionBall_ = f
     };
   
     this.update = function () {
-      if(this.isBodyActionBall || this.isStickyBall || this.isScoreBall) return;
+      if(this.ballType != BallType.BASKET_BALL) return;
 
       this.vel.add(this.acc.div(SUBSTEP));
       this.vel.limit(SPEED_LIMIT);
@@ -327,7 +333,7 @@ const ball = function (x, y, radius = null, color_ = null, isBodyActionBall_ = f
     };
   
     this.resolveAreaEdges = function (areaWidth, areaHeight) {
-      if(this.isBodyActionBall || this.isStickyBall || this.isScoreBall) return;
+      if(this.ballType != BallType.BASKET_BALL) return;
 
       // Check if the ball touches the left or right side of the screen
       if ((this.pos.x < -this.diameter) || (this.pos.x > areaWidth)) {
