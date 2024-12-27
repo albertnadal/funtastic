@@ -64,8 +64,10 @@ let basketImage = null;
 let floorImage = null;
 let logoImage = null;
 let customFont = null;
+let music = null;
+let countdown_audio = null;
+let audio_context = null;
 
-let gameStart = false;
 let gameState = GameState.WELCOME;
 
 const speechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -73,6 +75,28 @@ const speechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 function preload() {
   // Load the bodyPose model
   bodyPose = ml5.bodyPose();
+
+  // Load resources
+  heartImage = loadImage('heart.png');
+  basketballImage = loadImage('basketball.png');
+  silhouetteImage = loadImage('silhouette.png');
+  basketImage = loadImage('basket.png');
+  basketPlatformImage = loadImage('basket_platform.png');
+  floorImage = loadImage('ground.png');
+  logoImage = loadImage('funtastic.png');
+  customFont = loadFont('PressStart2P.ttf');
+
+  // Load audio resources
+  audio_context = new AudioContext();
+  music = new Audio('music.mp3');
+  music.mozPreservesPitch = false;
+  music.preservesPitch = false;
+  countdown_audio = new Audio('countdown.mp3');
+  countdown_audio.mozPreservesPitch = false;
+  countdown_audio.preservesPitch = false;
+
+  // Start voice recognition
+  initVoiceRecognition();
 }
 
 function setup() {
@@ -111,18 +135,7 @@ function setup() {
   ballArray.push(stickyBall4);
   ballArray.push(scoreBall);
 
-  // Load resources
-  heartImage = loadImage('heart.png');
-  basketballImage = loadImage('basketball.png');
-  silhouetteImage = loadImage('silhouette.png');
-  basketImage = loadImage('basket.png');
-  basketPlatformImage = loadImage('basket_platform.png');
-  floorImage = loadImage('ground.png');
-  logoImage = loadImage('funtastic.png');
-  customFont = loadFont('PressStart2P.ttf');
   textFont(customFont);
-
-  initVoiceRecognition();
 
   frameRate(60);
 }
@@ -143,6 +156,9 @@ function initVoiceRecognition() {
         player1Lives = MAX_LIVES;
         player2Lives = MAX_LIVES;
         gameState = GameState.PLAYERS_TAKE_POSITIONS;
+        audio_context.resume().then(() => {
+          music.play();
+        });
       }
     };
 
@@ -302,7 +318,7 @@ function drawSayStartText() {
   fill(255);
   stroke(0);
   strokeWeight(4);
-  textSize(26);
+  textSize(20);
   textAlign(CENTER, CENTER);
   text('Say "play" to start a new game.', areaWidth/2, areaHeight - areaHeight/5);
 }
