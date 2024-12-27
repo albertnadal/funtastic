@@ -68,6 +68,8 @@ let customFont = null;
 let gameStart = false;
 let gameState = GameState.WELCOME;
 
+const speechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
 function preload() {
   // Load the bodyPose model
   bodyPose = ml5.bodyPose();
@@ -120,55 +122,47 @@ function setup() {
   customFont = loadFont('PressStart2P.ttf');
   textFont(customFont);
 
+  initVoiceRecognition();
+
   frameRate(60);
+}
+
+function initVoiceRecognition() {
+  if (speechRecognition) {
+    const recognition = new speechRecognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = true;
+    recognition.interimResults = false;
+
+    recognition.onresult = (event) => {
+      let spokenWord = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
+
+      if ((spokenWord === "play") && (gameState == GameState.WELCOME)) {
+        player1Score = 0;
+        player2Score = 0;
+        player1Lives = MAX_LIVES;
+        player2Lives = MAX_LIVES;
+        gameState = GameState.PLAYERS_TAKE_POSITIONS;
+      }
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Error en el reconeixement de veu:", event.error);
+    };
+
+    recognition.onend = () => {
+      recognition.start();
+    };
+
+    recognition.start();
+  } else {
+    console.log("API de reconeixement de veu no suportada en aquest navegador.");
+  }
 }
 
 function draw() {
   // Draw the webcam video
   image(video, 0, 0, width, height);
-
-  // Draw the skeleton connections
-  for (let i = 0; i < poses.length; i++) {
-    let pose = poses[i];
-    for (let j = 0; j < connections.length; j++) {
-      let pointAIndex = connections[j][0];
-      let pointBIndex = connections[j][1];
-      let pointA = pose.keypoints[pointAIndex];
-      let pointB = pose.keypoints[pointBIndex];
-      // Only draw a line if both points are confident enough
-      if (pointA.confidence > 0.1 && pointB.confidence > 0.1) {
-        stroke(255, 0, 0);
-        strokeWeight(2);
-        line(areaWidth - pointA.x, pointA.y, areaWidth - pointB.x, pointB.y);
-      }
-    }
-  }
-
-  // Draw all the tracked landmark points
-  for (let i = 0; i < poses.length; i++) {
-    let pose = poses[i];
-    for (let j = 0; j < pose.keypoints.length; j++) {
-      let keypoint = pose.keypoints[j];
-      // Only draw a circle if the keypoint's confidence is bigger than 0.1
-      if (keypoint.confidence > 0.1) {
-        fill(0, 255, 0);
-        noStroke();
-        circle(areaWidth - keypoint.x, keypoint.y, 10);
-      }
-    }
-  }
-
-  // Calculate the position of player 1 action balls based on the left and right hand positions
-  if (poses.length > 0) {
-    updateHandActionBall(poses[0], 'left_elbow', 'left_wrist', player1LeftHandActionBall);
-    updateHandActionBall(poses[0], 'right_elbow', 'right_wrist', player1RightHandActionBall);
-  }
-
-  // Calculate the position of player 2 action balls based on the left and right hand positions
-  if (poses.length > 1) {
-    updateHandActionBall(poses[1], 'left_elbow', 'left_wrist', player2LeftHandActionBall);
-    updateHandActionBall(poses[1], 'right_elbow', 'right_wrist', player2RightHandActionBall);
-  }
 
   if(gameState == GameState.WELCOME) {
     let size = LOGO_WIDTH + sin(frameCount * 0.1) * LOGO_WIDTH * 0.2;
@@ -176,10 +170,57 @@ function draw() {
     imageMode(CENTER);
     image(logoImage, areaWidth / 2, areaHeight / 2, size, size);
     pop();
+
+    drawSayStartText();
   }
 
-  // Draw background basket platform
-  image(basketPlatformImage, areaWidth/2 - BASKET_WIDTH/2, BASKET_HEIGHT/4, BASKET_WIDTH, BASKET_HEIGHT);
+  if(gameState == GameState.PLAYERS_TAKE_POSITIONS) {
+    // Draw the skeleton connections
+    for (let i = 0; i < poses.length; i++) {
+      let pose = poses[i];
+      for (let j = 0; j < connections.length; j++) {
+        let pointAIndex = connections[j][0];
+        let pointBIndex = connections[j][1];
+        let pointA = pose.keypoints[pointAIndex];
+        let pointB = pose.keypoints[pointBIndex];
+        // Only draw a line if both points are confident enough
+        if (pointA.confidence > 0.1 && pointB.confidence > 0.1) {
+          stroke(255, 0, 0);
+          strokeWeight(2);
+          line(areaWidth - pointA.x, pointA.y, areaWidth - pointB.x, pointB.y);
+        }
+      }
+    }
+
+    // Draw all the tracked landmark points
+    for (let i = 0; i < poses.length; i++) {
+      let pose = poses[i];
+      for (let j = 0; j < pose.keypoints.length; j++) {
+        let keypoint = pose.keypoints[j];
+        // Only draw a circle if the keypoint's confidence is bigger than 0.1
+        if (keypoint.confidence > 0.1) {
+          fill(0, 255, 0);
+          noStroke();
+          circle(areaWidth - keypoint.x, keypoint.y, 10);
+        }
+      }
+    }
+
+    // Calculate the position of player 1 action balls based on the left and right hand positions
+    if (poses.length > 0) {
+      updateHandActionBall(poses[0], 'left_elbow', 'left_wrist', player1LeftHandActionBall);
+      updateHandActionBall(poses[0], 'right_elbow', 'right_wrist', player1RightHandActionBall);
+    }
+
+    // Calculate the position of player 2 action balls based on the left and right hand positions
+    if (poses.length > 1) {
+      updateHandActionBall(poses[1], 'left_elbow', 'left_wrist', player2LeftHandActionBall);
+      updateHandActionBall(poses[1], 'right_elbow', 'right_wrist', player2RightHandActionBall);
+    }
+
+    // Draw background basket platform
+    image(basketPlatformImage, areaWidth/2 - BASKET_WIDTH/2, BASKET_HEIGHT/4, BASKET_WIDTH, BASKET_HEIGHT);
+  }
 
   // Create new basketballs
   if (ballArray.length < BALL_AMOUNT + 2 + 2 + 5) {
@@ -194,28 +235,37 @@ function draw() {
     ballArray.forEach((ball) => ball.resolveAreaEdges(areaWidth, areaHeight));
   }
 
-  // Draw floor
-  image(floorImage, 0, areaHeight - FLOOR_IMAGE_HEIGHT, FLOOR_IMAGE_WIDTH, FLOOR_IMAGE_HEIGHT);
+  if(gameState == GameState.PLAYERS_TAKE_POSITIONS) {
+    // Draw floor
+    image(floorImage, 0, areaHeight - FLOOR_IMAGE_HEIGHT, FLOOR_IMAGE_WIDTH, FLOOR_IMAGE_HEIGHT);
+  }
 
-  // Draw balls
-  ballArray.forEach((ball) => ball.draw());
+  if(gameState == GameState.PLAYING) {
+    // Draw balls
+    ballArray.forEach((ball) => ball.draw());
+  }
 
-  // Draw players data
-  drawPlayersData();
+  if(gameState == GameState.PLAYERS_TAKE_POSITIONS) {
+    // Draw players data
+    drawPlayersData();
+  }
 
-  if (!gameStart) {
+  if(gameState == GameState.PLAYERS_TAKE_POSITIONS) {
     drawPlayersSilhouettes();
   }
 
-  // Draw foreground basket
-  image(basketImage, areaWidth/2 - BASKET_WIDTH/2, BASKET_HEIGHT/4, BASKET_WIDTH, BASKET_HEIGHT);
+  if(gameState == GameState.PLAYING) {
+    // Draw foreground basket
+    image(basketImage, areaWidth/2 - BASKET_WIDTH/2, BASKET_HEIGHT/4, BASKET_WIDTH, BASKET_HEIGHT);
 
-  // Delete balls marked for deletion
-  for (let i = ballArray.length - 1; i >= 0; i--) {
-    if (ballArray[i].markToDelete) {
-      ballArray.splice(i, 1);
+    // Delete balls marked for deletion
+    for (let i = ballArray.length - 1; i >= 0; i--) {
+      if (ballArray[i].markToDelete) {
+        ballArray.splice(i, 1);
+      }
     }
   }
+
 }
 
 function updateHandActionBall(pose, elbow, wrist, actionBall) {
@@ -246,6 +296,15 @@ function drawPlayersData() {
   for (let i = 0; i < player2Lives; i++) {
     image(heartImage, areaWidth/2 + 110 + i * (24 + 5), 10 + 22 + 10, 24, 24);
   }
+}
+
+function drawSayStartText() {
+  fill(255);
+  stroke(0);
+  strokeWeight(4);
+  textSize(26);
+  textAlign(CENTER, CENTER);
+  text('Say "play" to start a new game.', areaWidth/2, areaHeight - areaHeight/5);
 }
 
 function getHandCoordinateFromElbowAndWrist(elbow, wrist, percentage) {
