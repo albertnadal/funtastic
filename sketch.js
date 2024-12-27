@@ -15,6 +15,16 @@ const BASKET_WIDTH = 230;
 const BASKET_HEIGHT = 215;
 const FLOOR_IMAGE_HEIGHT = 54;
 const FLOOR_IMAGE_WIDTH = 900;
+const LOGO_WIDTH = 600;
+const LOGO_HEIGHT = 600;
+
+const GameState = {
+  WELCOME: 'WELCOME',
+  PLAYERS_TAKE_POSITIONS: 'PLAYERS_TAKE_POSITIONS',
+  COUNTDOWN: 'COUNTDOWN',
+  PLAYING: 'PLAYING',
+  GAME_OVER: 'GAME_OVER'
+};
 
 const BallType = {
   BASKET_BALL: 'BASKET_BALL',
@@ -52,9 +62,11 @@ let silhouetteImage = null;
 let basketPlatformImage = null;
 let basketImage = null;
 let floorImage = null;
+let logoImage = null;
 let customFont = null;
 
 let gameStart = false;
+let gameState = GameState.WELCOME;
 
 function preload() {
   // Load the bodyPose model
@@ -104,6 +116,7 @@ function setup() {
   basketImage = loadImage('basket.png');
   basketPlatformImage = loadImage('basket_platform.png');
   floorImage = loadImage('ground.png');
+  logoImage = loadImage('funtastic.png');
   customFont = loadFont('PressStart2P.ttf');
   textFont(customFont);
 
@@ -155,6 +168,14 @@ function draw() {
   if (poses.length > 1) {
     updateHandActionBall(poses[1], 'left_elbow', 'left_wrist', player2LeftHandActionBall);
     updateHandActionBall(poses[1], 'right_elbow', 'right_wrist', player2RightHandActionBall);
+  }
+
+  if(gameState == GameState.WELCOME) {
+    let size = LOGO_WIDTH + sin(frameCount * 0.1) * LOGO_WIDTH * 0.2;
+    push();
+    imageMode(CENTER);
+    image(logoImage, areaWidth / 2, areaHeight / 2, size, size);
+    pop();
   }
 
   // Draw background basket platform
