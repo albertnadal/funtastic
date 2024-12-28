@@ -72,6 +72,7 @@ let countdownAudio = null;
 let playersTakePositionsAudio = null;
 let celebrationAudio = null;
 let missedBallAudio = null;
+let gameOverAudio = null;
 let audioContext = null;
 let countdown = 3;
 let countdownLastTime = 0;
@@ -114,6 +115,9 @@ function preload() {
   missedBallAudio.volume = 1.0;
   missedBallAudio.mozPreservesPitch = false;
   missedBallAudio.preservesPitch = false;
+  gameOverAudio = new Audio('game_over.mp3');
+  gameOverAudio.mozPreservesPitch = false;
+  gameOverAudio.preservesPitch = false
 
   // Start voice recognition
   initVoiceRecognition();
@@ -161,54 +165,6 @@ function setup() {
   frameRate(60);
 }
 
-function initVoiceRecognition() {
-  if (speechRecognition) {
-    const recognition = new speechRecognition();
-    recognition.lang = 'en-US';
-    recognition.continuous = true;
-    recognition.interimResults = false;
-
-    recognition.onresult = (event) => {
-      let spokenWord = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
-      console.log(spokenWord);
-
-      if ((spokenWord === "play") && (currentState == GameState.WELCOME)) {
-        currentState = GameState.PLAYERS_TAKE_POSITIONS;
-        audioContext.resume().then(() => {
-          playersTakePositionsAudio.currentTime = 0;
-          playersTakePositionsAudio.play();
-        });
-      } else if (((spokenWord === "go") || (spokenWord === "go go")) && (currentState == GameState.PLAYERS_TAKE_POSITIONS)) {
-        playersTakePositionsAudio.pause();
-        player1Score = 0;
-        player2Score = 0;
-        player1Lives = MAX_LIVES;
-        player2Lives = MAX_LIVES;
-        ballAmount = 0;
-        countdown = 3;
-        countdownLastTime = 0;
-        currentState = GameState.COUNTDOWN;
-        audioContext.resume().then(() => {
-          countdownAudio.currentTime = 0;
-          countdownAudio.play();
-        });
-      } else if ((spokenWord === "ball") && (currentState == GameState.PLAYING)) {
-        ballAmount ++;
-      }
-    };
-
-    recognition.onerror = (event) => { };
-
-    recognition.onend = () => {
-      recognition.start();
-    };
-
-    recognition.start();
-  } else {
-    console.log("API de reconeixement de veu no suportada en aquest navegador.");
-  }
-}
-
 function draw() {
   // Draw the webcam video
   image(video, 0, 0, width, height);
@@ -223,6 +179,15 @@ function draw() {
     drawSayPlayText();
   }
 
+  if(currentState == GameState.GAME_OVER) {
+    drawGameOverText();
+  }
+
+  if([GameState.PLAYERS_TAKE_POSITIONS, GameState.COUNTDOWN, GameState.PLAYING, GameState.GAME_OVER].includes(currentState)) {
+    // Draw floor
+    image(floorImage, 0, (areaHeight - FLOOR_IMAGE_HEIGHT) * scale, FLOOR_IMAGE_WIDTH * scale, FLOOR_IMAGE_HEIGHT * scale);
+  }
+
   if([GameState.PLAYERS_TAKE_POSITIONS, GameState.COUNTDOWN, GameState.PLAYING].includes(currentState)) {
 
     if(DEBUG) {
@@ -234,30 +199,25 @@ function draw() {
 
     // Draw background basket platform
     image(basketPlatformImage, (areaWidth/2 - BASKET_WIDTH/2) * scale, (BASKET_HEIGHT/4) * scale, BASKET_WIDTH * scale, BASKET_HEIGHT * scale);
-  }
 
-  // Create new basketballs
-  if (ballArray.length < ballAmount + 2 + 2 + 5) {
-    let randomHorPosition = random(1) >= 0.5 ? random(areaWidth/2 - BASKET_WIDTH/2) : random(areaWidth/2 + BASKET_WIDTH/2, areaWidth);
-    ballArray.push(new ball(randomHorPosition * scale, (random(100) - 150) * scale, 30 * scale, color(255, 0, 0), BallType.BASKET_BALL));
-  }
+    // Create new basketballs
+    if (ballArray.length < ballAmount + 2 + 2 + 5) {
+      let randomHorPosition = random(1) >= 0.5 ? random(areaWidth/2 - BASKET_WIDTH/2) : random(areaWidth/2 + BASKET_WIDTH/2, areaWidth);
+      ballArray.push(new ball(randomHorPosition * scale, (random(100) - 150) * scale, 30 * scale, color(255, 0, 0), BallType.BASKET_BALL));
+    }
 
-  // Update balls states
-  for (let i = 0; i < SUBSTEP; i++) {
-    communicateBetweenBalls();
-    ballArray.forEach((ball) => ball.update());
-    ballArray.forEach((ball) => ball.resolveAreaEdges(areaWidth * scale, areaHeight * scale));
-  }
-
-  if([GameState.PLAYERS_TAKE_POSITIONS, GameState.COUNTDOWN, GameState.PLAYING].includes(currentState)) {
-    // Draw floor
-    image(floorImage, 0, (areaHeight - FLOOR_IMAGE_HEIGHT) * scale, FLOOR_IMAGE_WIDTH * scale, FLOOR_IMAGE_HEIGHT * scale);
+    // Update balls states
+    for (let i = 0; i < SUBSTEP; i++) {
+      communicateBetweenBalls();
+      ballArray.forEach((ball) => ball.update());
+      ballArray.forEach((ball) => ball.resolveAreaEdges(areaWidth * scale, areaHeight * scale));
+    }
 
     // Draw balls
     ballArray.forEach((ball) => ball.draw());
   }
 
-  if([GameState.PLAYERS_TAKE_POSITIONS, GameState.COUNTDOWN, GameState.PLAYING].includes(currentState)) {
+  if([GameState.PLAYERS_TAKE_POSITIONS, GameState.COUNTDOWN, GameState.PLAYING, GameState.GAME_OVER].includes(currentState)) {
     // Draw players data
     drawPlayersData();
   }
@@ -408,6 +368,22 @@ function drawPlayersData() {
   }
 }
 
+function drawGameOverText() {
+  fill(255);
+  stroke(0);
+  strokeWeight(4 * scale);
+  textSize(34 * scale);
+  textAlign(CENTER, CENTER);
+  text('GAME OVER\n\nPlayer ' + (player1Lives <= 0 ? '2' : '1') + ' wins!', (areaWidth/2) * scale, (areaHeight/4) * scale);
+
+  textSize(25 * scale);
+  textAlign(CENTER, CENTER);
+  text('Player 1 got ' + player1Score + ' points.\n\nPlayer 2 got ' + player2Score + ' points', (areaWidth/2) * scale, (areaHeight/2) * scale);
+
+  textSize(20 * scale);
+  text('Say "play" to play a new game.', (areaWidth/2) * scale, (areaHeight - areaHeight/5) * scale);
+}
+
 function drawSayPlayText() {
   fill(255);
   stroke(0);
@@ -434,6 +410,60 @@ function playScoreCelebrationAudio() {
 function playMissedBallAudio() {
   missedBallAudio.currentTime = 0;
   missedBallAudio.play();
+}
+
+function initVoiceRecognition() {
+  if (speechRecognition) {
+    const recognition = new speechRecognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = true;
+    recognition.interimResults = false;
+
+    recognition.onresult = (event) => {
+      let spokenWord = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
+      console.log(spokenWord);
+
+      if ((spokenWord === "play") && ((currentState == GameState.WELCOME) || (currentState == GameState.GAME_OVER))) {
+        player1Score = 0;
+        player2Score = 0;
+        player1Lives = MAX_LIVES;
+        player2Lives = MAX_LIVES;
+        ballAmount = 0;
+        currentState = GameState.PLAYERS_TAKE_POSITIONS;
+        audioContext.resume().then(() => {
+          playersTakePositionsAudio.currentTime = 0;
+          playersTakePositionsAudio.play();
+        });
+      } else if (((spokenWord === "go") || (spokenWord === "go go")) && (currentState == GameState.PLAYERS_TAKE_POSITIONS)) {
+        playersTakePositionsAudio.pause();
+        player1Score = 0;
+        player2Score = 0;
+        player1Lives = MAX_LIVES;
+        player2Lives = MAX_LIVES;
+        ballAmount = 0;
+        countdown = 3;
+        countdownLastTime = 0;
+        ballAmountIncrementalLastTime = 0;
+        currentState = GameState.COUNTDOWN;
+        audioContext.resume().then(() => {
+          countdownAudio.currentTime = 0;
+          countdownAudio.play();
+        });
+      } else if ((spokenWord === "ball") && (currentState == GameState.PLAYING)) {
+        ballAmount ++;
+      }
+    };
+
+    recognition.onerror = (event) => { };
+
+    recognition.onend = () => {
+      recognition.start();
+    };
+
+    recognition.start();
+  } else {
+    console.log("API de reconeixement de veu no suportada en aquest navegador.");
+  }
 }
 
 // Callback function for when bodyPose outputs data
@@ -555,7 +585,22 @@ const ball = function (x, y, radius = null, color_ = null, ballType_ = BallType.
           player2Lives--;
           playMissedBallAudio();
         }
+
         this.markToDelete = true;
+
+        if (player1Lives <= 0 || player2Lives <= 0) {
+          currentState = GameState.GAME_OVER;
+          music.pause();
+          gameOverAudio.currentTime = 0;
+          gameOverAudio.play();
+
+          // Delete all basketballs
+          for (let i = ballArray.length - 1; i >= 0; i--) {
+            if (ballArray[i].ballType == BallType.BASKET_BALL) {
+              ballArray.splice(i, 1);
+            }
+          }
+        }
       }
     };
 
