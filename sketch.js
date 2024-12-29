@@ -203,7 +203,7 @@ function draw() {
     // Create new basketballs
     if (ballArray.length < ballAmount + 2 + 2 + 5) {
       let randomHorPosition = random(1) >= 0.5 ? random(areaWidth/2 - BASKET_WIDTH/2) : random(areaWidth/2 + BASKET_WIDTH/2, areaWidth);
-      ballArray.push(new ball(randomHorPosition * scale, (random(100) - 150) * scale, 30 * scale, color(255, 0, 0), BallType.BASKET_BALL));
+      ballArray.push(new ball(randomHorPosition * scale, (random(100) - 150) * scale, 30 * scale, color(255, 0, 0), BallType.BASKET_BALL, basketballImage));
     }
 
     // Update balls states
@@ -540,7 +540,7 @@ const ball = function (x, y, radius = null, color_ = null, ballType_ = BallType.
     this.draw = function () {
       if (this.image) {
         push();
-        translate(this.pos.x + this.diameter / 2, this.pos.y + this.diameter / 2);
+        translate(this.pos.x, this.pos.y);
         rotate(radians(this.rotation));
         imageMode(CENTER);
         image(this.image, 0, 0, this.diameter, this.diameter);
